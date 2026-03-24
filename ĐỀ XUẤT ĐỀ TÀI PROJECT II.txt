@@ -1,0 +1,284 @@
+﻿ĐỀ XUẤT ĐỀ TÀI PROJECT II
+ĐỀ XUẤT ĐỀ TÀI PROJECT II
+1. Tên đề tài
+Phát triển game Gomoku với AI nhiều cấp độ và các chế độ luật chơi đa dạng
+________________
+
+
+2. Mục tiêu đề tài
+Mục tiêu của đề tài là xây dựng một ứng dụng web chơi Gomoku cho phép người dùng trải nghiệm trò chơi với nhiều chế độ và tính năng hỗ trợ khác nhau.
+Hệ thống cho phép người chơi:
+* Chơi 2 người trên cùng một thiết bị
+* Chơi với AI nhiều mức độ khó
+* Lựa chọn các luật chơi khác nhau
+* Nhận gợi ý nước đi từ hệ thống (Hint)
+* Tạm dừng và tiếp tục trận đấu khi cần
+Ngoài ra, hệ thống hướng tới việc xây dựng giao diện trực quan, thân thiện và dễ sử dụng, giúp người chơi có trải nghiệm tốt khi tương tác với game.
+________________
+
+
+3. Công nghệ sử dụng
+Frontend
+* HTML
+* CSS
+* JavaScript
+* ReactJS
+* TailwindCSS
+Backend
+* NodeJS
+* ExpressJS
+Database
+* SQLite hoặc MySQL
+Game Logic
+* JavaScript
+________________
+
+
+4. Các chức năng chính của hệ thống
+4.1 Gameplay cơ bản
+Game sử dụng bàn cờ Gomoku kích thước 15 × 15.
+Hai người chơi sẽ đánh lần lượt trên bàn cờ:
+* Người chơi thứ nhất sử dụng quân X
+* Người chơi thứ hai sử dụng quân O
+Hệ thống kiểm tra điều kiện thắng khi có số quân liên tiếp đạt yêu cầu theo:
+* hàng ngang
+* hàng dọc
+* đường chéo
+________________
+
+
+4.2 Chế độ hai người chơi (Local Multiplayer)
+Hai người chơi có thể chơi trên cùng một thiết bị.
+Cách chơi:
+* người chơi A đánh quân X
+* người chơi B đánh quân O
+* hai người thay phiên nhau đánh trên cùng bàn cờ
+Hệ thống:
+* tự động xác định lượt chơi
+* hiển thị người đang tới lượt
+________________
+
+
+4.3 Chơi với AI
+Game hỗ trợ 3 mức độ AI.
+Easy
+AI chọn nước đi ngẫu nhiên.
+________________
+
+
+Medium
+AI sử dụng các chiến thuật cơ bản:
+* chặn chuỗi quân của đối thủ
+* tạo chuỗi quân có lợi
+* ưu tiên vị trí gần các quân đã đánh
+________________
+
+
+Hard
+AI sử dụng thuật toán:
+* Minimax
+* Alpha-Beta pruning
+* heuristic evaluation
+để đánh giá các nước đi và lựa chọn phương án tối ưu.
+________________
+
+
+4.4 Smart Hint System
+Người chơi có thể sử dụng chức năng Hint để nhận gợi ý nước đi.
+Hệ thống sẽ:
+* phân tích trạng thái bàn cờ hiện tại
+* đề xuất một vị trí đánh hợp lý
+Chức năng này giúp:
+* hỗ trợ người chơi mới
+* cải thiện khả năng chiến thuật
+________________
+
+
+4.5 Multiple Rule Systems
+Game hỗ trợ nhiều luật chơi khác nhau, cho phép người chơi lựa chọn trước khi bắt đầu trận đấu.
+Gomoku 3-in-a-row
+Người chơi thắng khi có 3 quân liên tiếp theo hàng, cột hoặc đường chéo.
+Luật này giúp trận đấu diễn ra nhanh và phù hợp với người mới.
+________________
+
+
+Gomoku 4-in-a-row
+Người chơi thắng khi có 4 quân liên tiếp.
+Luật này có độ khó trung bình.
+________________
+
+
+Gomoku 5-in-a-row
+Người chơi thắng khi có 5 quân liên tiếp.
+Đây là luật Gomoku tiêu chuẩn.
+________________
+
+
+Renju Rule
+Renju là biến thể của Gomoku nhằm giảm lợi thế của người đi trước.
+Trong luật Renju:
+* không được tạo double three
+* không được tạo double four
+* không được tạo overline (6 quân trở lên)
+Luật này giúp trận đấu cân bằng và chiến thuật hơn.
+________________
+
+
+4.6 Timer cho mỗi lượt
+Mỗi lượt chơi có thời gian giới hạn (ví dụ: 30 giây).
+Nếu hết thời gian:
+* lượt chơi có thể bị bỏ qua
+* hoặc hệ thống xử thua (tùy thiết kế)
+________________
+
+
+4.7 Highlight nước đi cuối
+Sau mỗi lượt chơi:
+* ô vừa được đánh sẽ được làm nổi bật
+* giúp người chơi dễ theo dõi diễn biến trận đấu
+________________
+
+
+4.8 Match History
+Hệ thống lưu lại lịch sử các trận đấu.
+Thông tin lưu trữ gồm:
+* chế độ chơi
+* luật chơi được chọn
+* người thắng
+* thời gian trận đấu
+* danh sách nước đi
+Người chơi có thể xem lại các trận đã chơi.
+________________
+
+
+4.9 Pause Game
+Người chơi có thể tạm dừng trận đấu khi cần.
+Khi nhấn Pause, hệ thống hiển thị menu gồm:
+Resume
+Tiếp tục trận đấu từ trạng thái trước khi tạm dừng.
+Restart
+Bắt đầu lại trận đấu từ đầu.
+Back to Home
+Quay về trang chủ của game.
+
+
+KẾ HOẠCH THỰC HIỆN THEO TUẦN
+KẾ HOẠCH THỰC HIỆN THEO TUẦN
+Thời gian thực hiện: Tuần 27 - Tuần 39
+________________
+
+
+Tuần 27 - Milestone 0
+Công việc:
+* xác định đề tài
+* tìm hiểu luật Gomoku
+* nghiên cứu công nghệ sử dụng
+Kết quả:
+* hoàn thành đề xuất đề tài
+* xác định kiến trúc hệ thống
+________________
+
+
+Tuần 28
+Công việc:
+* thiết kế kiến trúc hệ thống
+* thiết kế database
+* thiết kế giao diện (UI wireframe)
+________________
+
+
+Tuần 29
+Công việc:
+* khởi tạo project
+* setup môi trường ReactJS
+* setup backend NodeJS
+________________
+
+
+Tuần 30 - Milestone 1
+Báo cáo lần 1
+Hoàn thành:
+* hiển thị bàn cờ Gomoku
+* đặt quân X/O
+* kiểm tra điều kiện thắng
+* highlight nước đi
+Demo:
+* game local cơ bản
+________________
+
+
+Tuần 31
+Công việc:
+* phát triển AI level Easy
+* xây dựng Smart Hint System cơ bản
+________________
+
+
+Tuần 32
+Công việc:
+* phát triển AI level Medium
+* cải thiện giao diện
+* thêm animation
+________________
+
+
+Tuần 33 - Milestone 2
+Báo cáo lần 2
+Hoàn thành:
+* chơi với AI (Easy, Medium)
+* Smart Hint System
+* Timer mỗi lượt
+________________
+
+
+Tuần 34
+Công việc:
+* phát triển AI level Hard
+* tối ưu thuật toán AI
+________________
+
+
+Tuần 35
+Công việc:
+* triển khai Multiple Rule Systems
+________________
+
+
+Tuần 36 - Milestone 3
+Báo cáo lần 3
+Hoàn thành:
+* Multiple Rule Systems
+* Pause / Resume / Restart
+* hoàn thiện gameplay chính
+Demo:
+* game gần hoàn chỉnh
+________________
+
+
+Tuần 37
+Công việc:
+* xây dựng Match History
+* kết nối database
+________________
+
+
+Tuần 38
+Công việc:
+* hoàn thiện giao diện
+* kiểm thử hệ thống
+* sửa lỗi
+________________
+
+
+Tuần 39 - Final Presentation
+Báo cáo và bảo vệ
+Hoàn thiện hệ thống:
+* gameplay hoàn chỉnh
+* AI 3 cấp độ
+* Smart Hint System
+* Multiple Rule Systems
+* Pause system
+* Match History
+Chuẩn bị:
+* slide thuyết trình
+* demo hệ thống
