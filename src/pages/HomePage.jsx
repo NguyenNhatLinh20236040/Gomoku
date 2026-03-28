@@ -44,7 +44,7 @@ export default function HomePage({ onStartGame }) {
           onClick={onStartGame}
           className="w-full py-4 px-6 bg-pink-600 hover:bg-pink-500 text-white text-xl font-bold rounded-xl shadow-lg shadow-pink-400/40 hover:shadow-pink-400/50 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
         >
-           Chơi 2 Người (Local)
+          Chơi 2 Người (Local)
         </button>
 
         {/* Chơi với AI - sẽ thêm ở milestone 2 */}
@@ -52,16 +52,11 @@ export default function HomePage({ onStartGame }) {
           disabled
           className="w-full py-4 px-6 bg-white/70 text-pink-300 text-xl font-bold rounded-xl border border-white/80 cursor-not-allowed"
         >
-           Chơi với AI
+          Chơi với AI
           <span className="block text-sm font-normal mt-1 text-pink-300">
             Sắp ra mắt - Milestone 2
           </span>
         </button>
-      </div>
-
-      {/* ===== FOOTER ===== */}
-      <div className="mt-12 text-pink-700 text-sm">
-        <p>© 2023 Gomoku Game. All rights reserved.</p>
       </div>
     </div>
   );
