@@ -12,9 +12,10 @@ import { BOARD_SIZE } from '../utils/checkWin';
  * @param {function} onCellClick - Hàm xử lý khi click ô
  * @param {Array|null} lastMove - [row, col] nước đi cuối
  * @param {Array|null} winCells - Mảng tọa độ 5 quân thắng
+ * @param {Array|null} hintCell - [row, col] ô gợi ý
  * @param {boolean} gameOver - Game đã kết thúc chưa
  */
-export default function Board({ board, onCellClick, lastMove, winCells, gameOver }) {
+export default function Board({ board, onCellClick, lastMove, winCells, hintCell, gameOver }) {
   const CELL_SIZE = 42; // Kích thước ô cố định để bảng hiển thị đầy đủ ngay từ đầu
   const gridStyle = {
     gridTemplateColumns: `28px repeat(${BOARD_SIZE}, ${CELL_SIZE}px)`,
@@ -30,6 +31,11 @@ export default function Board({ board, onCellClick, lastMove, winCells, gameOver
   const isWinCell = (row, col) => {
     if (!winCells) return false;
     return winCells.some(([r, c]) => r === row && c === col);
+  };
+
+  // Kiểm tra 1 ô có phải ô gợi ý không
+  const isHintCell = (row, col) => {
+    return hintCell && hintCell[0] === row && hintCell[1] === col;
   };
 
   return (
@@ -67,6 +73,7 @@ export default function Board({ board, onCellClick, lastMove, winCells, gameOver
               onClick={() => onCellClick(rowIdx, colIdx)}
               isLastMove={isLastMove(rowIdx, colIdx)}
               isWinCell={isWinCell(rowIdx, colIdx)}
+              isHintCell={isHintCell(rowIdx, colIdx)}
               disabled={gameOver}
             />
           ))}

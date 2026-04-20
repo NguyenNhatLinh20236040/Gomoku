@@ -1,8 +1,3 @@
--- =============================================
--- Gomoku Database Schema — SQLite
--- Version: 1.0 (Tuần 29)
--- =============================================
-
 -- Bảng lưu trận đấu
 CREATE TABLE IF NOT EXISTS matches (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

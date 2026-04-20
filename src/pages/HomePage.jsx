@@ -2,9 +2,20 @@
 // HomePage.jsx - Trang chủ
 // ==========================================
 // Giao diện chào mừng với các nút lựa chọn
-// chế độ chơi. Milestone 1: chỉ có Local 2P.
+// chế độ chơi: Local 2P hoặc AI (popup chọn level).
 
+import { useState } from 'react';
+import AILevelModal from '../components/AILevelModal';
+
+/**
+ * @param {function} onStartGame - Bắt đầu game với mode & level
+ *   onStartGame(gameMode, aiLevel)
+ *   gameMode: 'local' | 'ai'
+ *   aiLevel:  'easy' | 'medium' | null
+ */
 export default function HomePage({ onStartGame }) {
+  const [showAIModal, setShowAIModal] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-pink-200 flex flex-col items-center justify-center px-4 text-pink-900">
 
@@ -41,23 +52,34 @@ export default function HomePage({ onStartGame }) {
 
         {/* Chơi 2 người - Local */}
         <button
-          onClick={onStartGame}
-          className="w-full py-4 px-6 bg-pink-600 hover:bg-pink-500 text-white text-xl font-bold rounded-xl shadow-lg shadow-pink-400/40 hover:shadow-pink-400/50 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          onClick={() => onStartGame('local', null)}
+          className="animate-stagger-1 w-full py-4 px-6 bg-pink-600 hover:bg-pink-500 text-white text-xl font-bold rounded-xl shadow-lg shadow-pink-400/40 hover:shadow-pink-400/50 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
         >
-          Chơi 2 Người (Local)
+          👥 Chơi 2 Người (Local)
         </button>
 
-        {/* Chơi với AI - sẽ thêm ở milestone 2 */}
+        {/* Chơi với AI - mở popup chọn level */}
         <button
-          disabled
-          className="w-full py-4 px-6 bg-white/70 text-pink-300 text-xl font-bold rounded-xl border border-white/80 cursor-not-allowed"
+          onClick={() => setShowAIModal(true)}
+          className="animate-stagger-2 w-full py-4 px-6 bg-white/80 hover:bg-white/95 text-pink-800 text-xl font-bold rounded-xl border-2 border-pink-300 hover:border-pink-400 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
         >
-          Chơi với AI
-          <span className="block text-sm font-normal mt-1 text-pink-300">
-            Sắp ra mắt - Milestone 2
+          🤖 Chơi với AI
+          <span className="block text-sm font-normal mt-1 text-pink-500">
+            Chọn độ khó để bắt đầu
           </span>
         </button>
       </div>
+
+      {/* ===== POPUP CHỌN LEVEL AI ===== */}
+      {showAIModal && (
+        <AILevelModal
+          onSelect={(level) => {
+            setShowAIModal(false);
+            onStartGame('ai', level);
+          }}
+          onClose={() => setShowAIModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,9 +1,3 @@
-// ==========================================
-// checkWin.js - Kiểm tra điều kiện thắng
-// ==========================================
-// Logic: Từ vị trí vừa đặt quân, đếm số quân
-// liên tiếp theo 4 hướng: ngang, dọc, chéo chính, chéo phụ.
-// Nếu tổng >= 5 quân liên tiếp → thắng.
 
 const BOARD_SIZE = 15;
 const WIN_COUNT = 5;
@@ -18,7 +12,7 @@ const WIN_COUNT = 5;
  */
 export function checkWin(board, row, col, player) {
   // 4 hướng kiểm tra: [delta_row, delta_col]
-  // Ngang (→), Dọc (↓), Chéo chính (\), Chéo phụ (/)
+
   const directions = [
     [0, 1],   // ngang
     [1, 0],   // dọc
