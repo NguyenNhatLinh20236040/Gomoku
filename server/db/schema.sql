@@ -1,13 +1,15 @@
 -- Bảng lưu trận đấu
 CREATE TABLE IF NOT EXISTS matches (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    mode         TEXT    NOT NULL DEFAULT 'local',
-    rule         TEXT    NOT NULL DEFAULT 'gomoku5',
-    ai_level     TEXT,
-    winner       TEXT    CHECK(winner IN ('X', 'O', 'DRAW')),
-    total_moves  INTEGER NOT NULL DEFAULT 0,
-    started_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-    ended_at     DATETIME
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode             TEXT    NOT NULL DEFAULT 'local',
+    rule             TEXT    NOT NULL DEFAULT 'gomoku5',
+    ai_level         TEXT,
+    ai_side          TEXT    CHECK(ai_side IN ('X', 'O')),
+    winner           TEXT    CHECK(winner IN ('X', 'O', 'DRAW')),
+    total_moves      INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER DEFAULT 0,
+    started_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at         DATETIME
 );
 
 -- Bảng lưu nước đi
@@ -16,8 +18,8 @@ CREATE TABLE IF NOT EXISTS moves (
     match_id  INTEGER NOT NULL,
     turn      INTEGER NOT NULL,
     player    TEXT    NOT NULL CHECK(player IN ('X', 'O')),
-    row       INTEGER NOT NULL CHECK(row >= 0 AND row <= 14),
-    col       INTEGER NOT NULL CHECK(col >= 0 AND col <= 14),
+    row       INTEGER NOT NULL CHECK(row >= 0),
+    col       INTEGER NOT NULL CHECK(col >= 0),
     played_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
 );

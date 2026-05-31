@@ -1,84 +1,140 @@
 // ==========================================
-// Board.jsx - Component bàn cờ 15x15
+// Board.jsx - Dynamic board (3x3 or 15x15)
 // ==========================================
-// Render lưới 15x15. Mỗi ô là 1 Cell component.
-// Nhận props từ Game để xử lý click, highlight.
 
 import Cell from './Cell';
-import { BOARD_SIZE } from '../utils/checkWin';
 
 /**
- * @param {Array} board - Mảng 2D trạng thái bàn cờ
- * @param {function} onCellClick - Hàm xử lý khi click ô
- * @param {Array|null} lastMove - [row, col] nước đi cuối
- * @param {Array|null} winCells - Mảng tọa độ 5 quân thắng
- * @param {Array|null} hintCell - [row, col] ô gợi ý
- * @param {boolean} gameOver - Game đã kết thúc chưa
+ * @param {Array} board - 2D board state
+ * @param {function} onCellClick - Cell click handler
+ * @param {Array|null} lastMove - [row, col] last move
+ * @param {Array|null} winCells - Winning cell coordinates
+ * @param {Array|null} hintCell - [row, col] hint cell
+ * @param {boolean} gameOver - Game ended
  */
 export default function Board({ board, onCellClick, lastMove, winCells, hintCell, gameOver }) {
-  const CELL_SIZE = 42; // Kích thước ô cố định để bảng hiển thị đầy đủ ngay từ đầu
+  const boardSize = board.length;
+  const CELL_SIZE = boardSize <= 3 ? 100 : 42;
+  const HEADER_SIZE = 28; // left column width for row numbers
+
   const gridStyle = {
-    gridTemplateColumns: `28px repeat(${BOARD_SIZE}, ${CELL_SIZE}px)`,
+    gridTemplateColumns: `${HEADER_SIZE}px repeat(${boardSize}, ${CELL_SIZE}px)`,
     gridAutoRows: `${CELL_SIZE}px`,
   };
 
-  // Kiểm tra 1 ô có phải nước đi cuối không
   const isLastMove = (row, col) => {
     return lastMove && lastMove[0] === row && lastMove[1] === col;
   };
 
-  // Kiểm tra 1 ô có nằm trong đường thắng không
   const isWinCell = (row, col) => {
     if (!winCells) return false;
     return winCells.some(([r, c]) => r === row && c === col);
   };
 
-  // Kiểm tra 1 ô có phải ô gợi ý không
   const isHintCell = (row, col) => {
     return hintCell && hintCell[0] === row && hintCell[1] === col;
   };
 
+  // Calculate win-line SVG coordinates
+  const getWinLine = () => {
+    if (!winCells || winCells.length < 2) return null;
+
+    // Sort cells to get endpoints
+    const sorted = [...winCells].sort((a, b) => {
+      if (a[0] !== b[0]) return a[0] - b[0];
+      return a[1] - b[1];
+    });
+
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+
+    // Center of each cell:  HEADER_SIZE + colIdx * CELL_SIZE + CELL_SIZE/2
+    const x1 = HEADER_SIZE + first[1] * CELL_SIZE + CELL_SIZE / 2;
+    const y1 = first[0] * CELL_SIZE + CELL_SIZE / 2;
+    const x2 = HEADER_SIZE + last[1] * CELL_SIZE + CELL_SIZE / 2;
+    const y2 = last[0] * CELL_SIZE + CELL_SIZE / 2;
+
+    return { x1, y1, x2, y2 };
+  };
+
+  const winLine = getWinLine();
+
+  // Total board width/height for SVG overlay
+  const totalWidth = HEADER_SIZE + boardSize * CELL_SIZE;
+  const totalHeight = boardSize * CELL_SIZE;
+
   return (
     <div className="inline-block p-2 bg-pink-50 rounded-lg shadow-xl border-2 border-pink-200">
-      {/* Header cột: A B C ... O */}
+      {/* Column headers: A B C ... */}
       <div
         className="grid gap-0"
         style={gridStyle}
       >
-        <div /> {/* Ô trống góc trên trái */}
-        {Array.from({ length: BOARD_SIZE }, (_, i) => (
+        <div /> {/* Empty top-left corner */}
+        {Array.from({ length: boardSize }, (_, i) => (
           <div key={i} className="text-center text-xs text-pink-400 font-mono pb-1">
             {String.fromCharCode(65 + i)}
           </div>
         ))}
       </div>
 
-      {/* Bàn cờ + header hàng */}
-      {board.map((row, rowIdx) => (
-        <div
-          key={rowIdx}
-          className="grid gap-0"
-          style={gridStyle}
-        >
-          {/* Số hàng bên trái */}
-          <div className="flex items-center justify-center text-xs text-pink-400 font-mono pr-1">
-            {rowIdx + 1}
-          </div>
+      {/* Board grid with win line overlay */}
+      <div className="relative">
+        {board.map((row, rowIdx) => (
+          <div
+            key={rowIdx}
+            className="grid gap-0"
+            style={gridStyle}
+          >
+            {/* Row number */}
+            <div className="flex items-center justify-center text-xs text-pink-400 font-mono pr-1">
+              {rowIdx + 1}
+            </div>
 
-          {/* Các ô trong hàng */}
-          {row.map((cell, colIdx) => (
-            <Cell
-              key={`${rowIdx}-${colIdx}`}
-              value={cell}
-              onClick={() => onCellClick(rowIdx, colIdx)}
-              isLastMove={isLastMove(rowIdx, colIdx)}
-              isWinCell={isWinCell(rowIdx, colIdx)}
-              isHintCell={isHintCell(rowIdx, colIdx)}
-              disabled={gameOver}
+            {/* Cells */}
+            {row.map((cell, colIdx) => (
+              <Cell
+                key={`${rowIdx}-${colIdx}`}
+                value={cell}
+                onClick={() => onCellClick(rowIdx, colIdx)}
+                isLastMove={isLastMove(rowIdx, colIdx)}
+                isWinCell={isWinCell(rowIdx, colIdx)}
+                isHintCell={isHintCell(rowIdx, colIdx)}
+                disabled={gameOver}
+                large={boardSize <= 3}
+              />
+            ))}
+          </div>
+        ))}
+
+        {/* Win line SVG overlay */}
+        {winLine && (
+          <svg
+            className="absolute top-0 left-0 pointer-events-none"
+            width={totalWidth}
+            height={totalHeight}
+            style={{ zIndex: 10 }}
+          >
+            {/* Shadow / glow behind line */}
+            <line
+              x1={winLine.x1} y1={winLine.y1}
+              x2={winLine.x2} y2={winLine.y2}
+              stroke="rgba(236, 72, 153, 0.3)"
+              strokeWidth={boardSize <= 3 ? 14 : 8}
+              strokeLinecap="round"
             />
-          ))}
-        </div>
-      ))}
+            {/* Main animated line */}
+            <line
+              x1={winLine.x1} y1={winLine.y1}
+              x2={winLine.x2} y2={winLine.y2}
+              stroke="#ec4899"
+              strokeWidth={boardSize <= 3 ? 6 : 4}
+              strokeLinecap="round"
+              className="animate-win-line"
+            />
+          </svg>
+        )}
+      </div>
     </div>
   );
 }

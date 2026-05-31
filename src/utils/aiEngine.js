@@ -1,10 +1,3 @@
-// ==========================================
-// aiEngine.js - AI Engine cho Gomoku
-// ==========================================
-// Cung cấp 2 level AI:
-//   Easy   — chọn random ô gần các quân đã có
-//   Medium — minimax + alpha-beta + heuristic
-// ==========================================
 
 import { BOARD_SIZE, WIN_COUNT, checkWin } from './checkWin';
 
@@ -18,16 +11,16 @@ const DIRECTIONS = [
 
 // Điểm heuristic cho từng pattern
 const SCORES = {
-  FIVE:       100000,   // 5 liên tiếp → thắng
-  OPEN_FOUR:  10000,    // 4 mở 2 đầu → gần thắng
-  HALF_FOUR:  1000,     // 4 bịt 1 đầu
+  FIVE: 100000,   // 5 liên tiếp → thắng
+  OPEN_FOUR: 10000,    // 4 mở 2 đầu → gần thắng
+  HALF_FOUR: 1000,     // 4 bịt 1 đầu
   OPEN_THREE: 1000,     // 3 mở 2 đầu
   HALF_THREE: 100,      // 3 bịt 1 đầu
-  OPEN_TWO:   100,      // 2 mở 2 đầu
-  HALF_TWO:   10,       // 2 bịt 1 đầu
+  OPEN_TWO: 100,      // 2 mở 2 đầu
+  HALF_TWO: 10,       // 2 bịt 1 đầu
 };
 
-const MINIMAX_DEPTH = 3;      // Độ sâu minimax
+const MINIMAX_DEPTH = 3;      // Độ sâu minimax (Medium)
 const CANDIDATE_RADIUS = 2;   // Bán kính tìm ô ứng viên
 
 // ==========================================
@@ -37,8 +30,8 @@ const CANDIDATE_RADIUS = 2;   // Bán kính tìm ô ứng viên
 /**
  * Kiểm tra tọa độ có nằm trong bàn cờ không
  */
-function inBounds(r, c) {
-  return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE;
+function inBounds(r, c, size) {
+  return r >= 0 && r < size && c >= 0 && c < size;
 }
 
 /**
@@ -46,19 +39,19 @@ function inBounds(r, c) {
  * Giúp giảm search space đáng kể
  */
 function getCandidateMoves(board, radius = CANDIDATE_RADIUS) {
+  const size = board.length;
   const candidates = new Set();
   let hasAnyPiece = false;
 
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
       if (board[r][c] !== null) {
         hasAnyPiece = true;
-        // Tìm ô trống xung quanh
         for (let dr = -radius; dr <= radius; dr++) {
           for (let dc = -radius; dc <= radius; dc++) {
             const nr = r + dr;
             const nc = c + dc;
-            if (inBounds(nr, nc) && board[nr][nc] === null) {
+            if (inBounds(nr, nc, size) && board[nr][nc] === null) {
               candidates.add(`${nr},${nc}`);
             }
           }
@@ -67,9 +60,8 @@ function getCandidateMoves(board, radius = CANDIDATE_RADIUS) {
     }
   }
 
-  // Nếu bàn cờ trống, đánh vào giữa
   if (!hasAnyPiece) {
-    const center = Math.floor(BOARD_SIZE / 2);
+    const center = Math.floor(size / 2);
     return [{ row: center, col: center }];
   }
 
@@ -86,32 +78,29 @@ function getCandidateMoves(board, radius = CANDIDATE_RADIUS) {
  *   openEnds = số đầu mở (0, 1, hoặc 2)
  */
 function countDirection(board, row, col, dr, dc, player) {
+  const size = board.length;
   let count = 1;
   let openEnds = 0;
 
-  // Đếm hướng thuận
   let r = row + dr;
   let c = col + dc;
-  while (inBounds(r, c) && board[r][c] === player) {
+  while (inBounds(r, c, size) && board[r][c] === player) {
     count++;
     r += dr;
     c += dc;
   }
-  // Kiểm tra đầu mở hướng thuận
-  if (inBounds(r, c) && board[r][c] === null) {
+  if (inBounds(r, c, size) && board[r][c] === null) {
     openEnds++;
   }
 
-  // Đếm hướng ngược
   r = row - dr;
   c = col - dc;
-  while (inBounds(r, c) && board[r][c] === player) {
+  while (inBounds(r, c, size) && board[r][c] === player) {
     count++;
     r -= dr;
     c -= dc;
   }
-  // Kiểm tra đầu mở hướng ngược
-  if (inBounds(r, c) && board[r][c] === null) {
+  if (inBounds(r, c, size) && board[r][c] === null) {
     openEnds++;
   }
 
@@ -119,44 +108,87 @@ function countDirection(board, row, col, dr, dc, player) {
 }
 
 /**
- * Đánh giá điểm cho 1 quân tại (row, col) theo tất cả hướng
+ * Chấm điểm cho 1 pattern (count + openEnds)
  */
-function evaluateCell(board, row, col, player) {
+function scorePattern(count, openEnds, winCount = WIN_COUNT) {
+  if (count >= winCount) return SCORES.FIVE;
+  if (count === winCount - 1) return openEnds === 2 ? SCORES.OPEN_FOUR : openEnds === 1 ? SCORES.HALF_FOUR : 0;
+  if (count === winCount - 2 && winCount >= 4) return openEnds === 2 ? SCORES.OPEN_THREE : openEnds === 1 ? SCORES.HALF_THREE : 0;
+  if (count === winCount - 3 && winCount >= 5) return openEnds === 2 ? SCORES.OPEN_TWO : openEnds === 1 ? SCORES.HALF_TWO : 0;
+  return 0;
+}
+
+/**
+ * Đánh giá điểm cho 1 quân tại (row, col) theo tất cả hướng
+ * (Dùng cho move ordering và hint — per-cell evaluation)
+ */
+function evaluateCell(board, row, col, player, winCount = WIN_COUNT) {
   if (board[row][col] !== player) return 0;
 
   let score = 0;
 
   for (const [dr, dc] of DIRECTIONS) {
     const { count, openEnds } = countDirection(board, row, col, dr, dc, player);
-
-    if (count >= WIN_COUNT) {
-      score += SCORES.FIVE;
-    } else if (count === 4) {
-      score += openEnds === 2 ? SCORES.OPEN_FOUR : openEnds === 1 ? SCORES.HALF_FOUR : 0;
-    } else if (count === 3) {
-      score += openEnds === 2 ? SCORES.OPEN_THREE : openEnds === 1 ? SCORES.HALF_THREE : 0;
-    } else if (count === 2) {
-      score += openEnds === 2 ? SCORES.OPEN_TWO : openEnds === 1 ? SCORES.HALF_TWO : 0;
-    }
+    score += scorePattern(count, openEnds, winCount);
   }
 
   return score;
 }
 
 /**
- * Đánh giá toàn bộ bàn cờ cho 1 người chơi
- * Điểm dương = có lợi cho aiPlayer
+ * Quét theo 4 hướng, mỗi chuỗi quân chỉ được tính 1 lần.
+ * Cách thức: với mỗi hướng, duyệt từng ô — chỉ bắt đầu đánh giá
+ * khi ô phía trước (theo hướng ngược) KHÔNG phải cùng player
+ * (tức là ô hiện tại là đầu chuỗi).
  */
-function evaluateBoard(board, aiPlayer) {
+function evaluateBoard(board, aiPlayer, winCount = WIN_COUNT) {
+  const size = board.length;
   const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
   let score = 0;
 
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (board[r][c] === aiPlayer) {
-        score += evaluateCell(board, r, c, aiPlayer);
-      } else if (board[r][c] === humanPlayer) {
-        score -= evaluateCell(board, r, c, humanPlayer) * 1.1; // Phòng thủ quan trọng hơn tấn công 1 chút
+  for (const [dr, dc] of DIRECTIONS) {
+    // Xác định phạm vi duyệt để quét tất cả các line theo hướng (dr, dc)
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const cell = board[r][c];
+        if (cell === null) continue;
+
+        // Kiểm tra có phải đầu chuỗi không:
+        // Ô ngay phía trước (hướng ngược) không phải cùng player
+        const prevR = r - dr;
+        const prevC = c - dc;
+        if (inBounds(prevR, prevC, size) && board[prevR][prevC] === cell) {
+          continue; // Không phải đầu chuỗi → bỏ qua
+        }
+
+        // Đây là đầu chuỗi → đếm theo hướng thuận
+        let count = 1;
+        let nr = r + dr;
+        let nc = c + dc;
+        while (inBounds(nr, nc, size) && board[nr][nc] === cell) {
+          count++;
+          nr += dr;
+          nc += dc;
+        }
+
+        // Kiểm tra openEnds
+        let openEnds = 0;
+        // Đầu trước chuỗi (hướng ngược)
+        if (inBounds(prevR, prevC, size) && board[prevR][prevC] === null) {
+          openEnds++;
+        }
+        // Đầu sau chuỗi (hướng thuận)
+        if (inBounds(nr, nc, size) && board[nr][nc] === null) {
+          openEnds++;
+        }
+
+        const patternScore = scorePattern(count, openEnds, winCount);
+
+        if (cell === aiPlayer) {
+          score += patternScore;
+        } else {
+          score -= patternScore * 1.1; // Phòng thủ quan trọng hơn tấn công
+        }
       }
     }
   }
@@ -197,12 +229,12 @@ export function getEasyMove(board) {
 /**
  * Minimax với alpha-beta pruning
  */
-function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer) {
+function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer, winCount = WIN_COUNT) {
   const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
 
   // Terminal conditions
   if (depth === 0) {
-    return { score: evaluateBoard(board, aiPlayer) };
+    return { score: evaluateBoard(board, aiPlayer, winCount) };
   }
 
   const candidates = getCandidateMoves(board);
@@ -218,13 +250,13 @@ function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer) {
       board[row][col] = aiPlayer;
 
       // Kiểm tra thắng ngay
-      const win = checkWin(board, row, col, aiPlayer);
+      const win = checkWin(board, row, col, aiPlayer, winCount);
       if (win) {
         board[row][col] = null;
         return { score: SCORES.FIVE * (depth + 1), move: { row, col } };
       }
 
-      const result = minimax(board, depth - 1, alpha, beta, false, aiPlayer);
+      const result = minimax(board, depth - 1, alpha, beta, false, aiPlayer, winCount);
       board[row][col] = null;
 
       if (result.score > bestScore) {
@@ -246,13 +278,13 @@ function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer) {
       board[row][col] = humanPlayer;
 
       // Kiểm tra người chơi thắng
-      const win = checkWin(board, row, col, humanPlayer);
+      const win = checkWin(board, row, col, humanPlayer, winCount);
       if (win) {
         board[row][col] = null;
         return { score: -SCORES.FIVE * (depth + 1), move: { row, col } };
       }
 
-      const result = minimax(board, depth - 1, alpha, beta, true, aiPlayer);
+      const result = minimax(board, depth - 1, alpha, beta, true, aiPlayer, winCount);
       board[row][col] = null;
 
       if (result.score < bestScore) {
@@ -274,7 +306,7 @@ function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer) {
  * @param {string} aiPlayer - 'X' hoặc 'O' (AI đánh quân nào)
  * @returns {{ row: number, col: number }}
  */
-export function getMediumMove(board, aiPlayer = 'O') {
+export function getMediumMove(board, aiPlayer = 'O', winCount = WIN_COUNT) {
   // Tạo bản sao để minimax mutate tạm
   const boardCopy = board.map(r => [...r]);
 
@@ -282,7 +314,7 @@ export function getMediumMove(board, aiPlayer = 'O') {
   const candidates = getCandidateMoves(boardCopy);
   for (const { row, col } of candidates) {
     boardCopy[row][col] = aiPlayer;
-    if (checkWin(boardCopy, row, col, aiPlayer)) {
+    if (checkWin(boardCopy, row, col, aiPlayer, winCount)) {
       boardCopy[row][col] = null;
       return { row, col };
     }
@@ -293,7 +325,7 @@ export function getMediumMove(board, aiPlayer = 'O') {
   const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
   for (const { row, col } of candidates) {
     boardCopy[row][col] = humanPlayer;
-    if (checkWin(boardCopy, row, col, humanPlayer)) {
+    if (checkWin(boardCopy, row, col, humanPlayer, winCount)) {
       boardCopy[row][col] = null;
       return { row, col };
     }
@@ -301,10 +333,186 @@ export function getMediumMove(board, aiPlayer = 'O') {
   }
 
   // Dùng minimax cho nước đi tốt nhất
-  const result = minimax(boardCopy, MINIMAX_DEPTH, -Infinity, Infinity, true, aiPlayer);
+  const result = minimax(boardCopy, MINIMAX_DEPTH, -Infinity, Infinity, true, aiPlayer, winCount);
 
   return result.move || candidates[0];
 }
 
+// ==========================================
+// HARD AI — Enhanced Minimax + Move Ordering
+// ==========================================
+
+const HARD_DEPTH = 4;
+
+/**
+ * Sắp xếp nước đi theo heuristic score (nước tốt trước → cắt tỉa hiệu quả)
+ */
+function orderMoves(board, candidates, aiPlayer, winCount = WIN_COUNT) {
+  const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
+
+  const scored = candidates.map(({ row, col }) => {
+    let score = 0;
+
+    // Thử đặt AI — chỉ dùng evaluateCell (nhanh hơn checkWin)
+    board[row][col] = aiPlayer;
+    score += evaluateCell(board, row, col, aiPlayer, winCount) * 2;
+    board[row][col] = null;
+
+    // Thử đặt đối thủ
+    board[row][col] = humanPlayer;
+    score += evaluateCell(board, row, col, humanPlayer, winCount) * 1.5;
+    board[row][col] = null;
+
+    return { row, col, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Giới hạn số nước đi xem xét để tránh quá chậm
+  return scored.slice(0, 15);
+}
+
+/**
+ * Thêm kiểm tra terminal state (thắng/thua) trước khi đệ quy tiếp.
+ */
+function minimaxHard(board, depth, alpha, beta, isMaximizing, aiPlayer, winCount = WIN_COUNT) {
+  const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
+
+  if (depth === 0) {
+    return { score: evaluateBoard(board, aiPlayer, winCount) };
+  }
+
+  const rawCandidates = getCandidateMoves(board);
+  if (rawCandidates.length === 0) {
+    return { score: 0 };
+  }
+
+  // Move ordering — chỉ ở depth cao để tiết kiệm thời gian
+  const candidates = depth >= 2
+    ? orderMoves(board, rawCandidates, aiPlayer, winCount)
+    : rawCandidates.slice(0, 12);
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    let bestMove = candidates[0];
+
+    for (const { row, col } of candidates) {
+      board[row][col] = aiPlayer;
+
+      const win = checkWin(board, row, col, aiPlayer, winCount);
+      if (win) {
+        board[row][col] = null;
+        return { score: SCORES.FIVE * (depth + 1), move: { row, col } };
+      }
+
+      const result = minimaxHard(board, depth - 1, alpha, beta, false, aiPlayer, winCount);
+      board[row][col] = null;
+
+      if (result.score > bestScore) {
+        bestScore = result.score;
+        bestMove = { row, col };
+      }
+
+      alpha = Math.max(alpha, bestScore);
+      if (beta <= alpha) break;
+    }
+
+    return { score: bestScore, move: bestMove };
+  } else {
+    let bestScore = Infinity;
+    let bestMove = candidates[0];
+
+    for (const { row, col } of candidates) {
+      board[row][col] = humanPlayer;
+
+      const win = checkWin(board, row, col, humanPlayer, winCount);
+      if (win) {
+        board[row][col] = null;
+        return { score: -SCORES.FIVE * (depth + 1), move: { row, col } };
+      }
+
+      const result = minimaxHard(board, depth - 1, alpha, beta, true, aiPlayer, winCount);
+      board[row][col] = null;
+
+      if (result.score < bestScore) {
+        bestScore = result.score;
+        bestMove = { row, col };
+      }
+
+      beta = Math.min(beta, bestScore);
+      if (beta <= alpha) break;
+    }
+
+    return { score: bestScore, move: bestMove };
+  }
+}
+
+/**
+ * Tính threat score cho 1 nước đi của player
+ */
+function getThreatScore(board, row, col, player, winCount = WIN_COUNT) {
+  let threatCount = 0;
+  for (const [dr, dc] of DIRECTIONS) {
+    const { count, openEnds } = countDirection(board, row, col, dr, dc, player);
+    // open "four" = winCount-1 quân mở 2 đầu
+    if (count === winCount - 1 && openEnds === 2) threatCount += 3;
+    // open "three" = winCount-2 quân mở 2 đầu (chỉ khi winCount >= 4)
+    if (winCount >= 4 && count === winCount - 2 && openEnds === 2) threatCount += 1;
+  }
+  return threatCount;
+}
+
+/**
+ * Threat detection giờ kiểm tra CẢ đối thủ (block) trước khi tạo threat của mình.
+ * @param {Array} board - Bàn cờ
+ * @param {string} aiPlayer - 'X' hoặc 'O'
+ * @returns {{ row: number, col: number }}
+ */
+export function getHardMove(board, aiPlayer = 'O', winCount = WIN_COUNT) {
+  const boardCopy = board.map(r => [...r]);
+  const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
+  const candidates = getCandidateMoves(boardCopy);
+
+  // 1. Nước thắng ngay
+  for (const { row, col } of candidates) {
+    boardCopy[row][col] = aiPlayer;
+    if (checkWin(boardCopy, row, col, aiPlayer, winCount)) {
+      boardCopy[row][col] = null;
+      return { row, col };
+    }
+    boardCopy[row][col] = null;
+  }
+
+  // 2. Block đối thủ thắng
+  for (const { row, col } of candidates) {
+    boardCopy[row][col] = humanPlayer;
+    if (checkWin(boardCopy, row, col, humanPlayer, winCount)) {
+      boardCopy[row][col] = null;
+      return { row, col };
+    }
+    boardCopy[row][col] = null;
+  }
+
+  // Kiểm tra xem đối thủ có nước nào tạo double-threat không
+  for (const { row, col } of candidates) {
+    boardCopy[row][col] = humanPlayer;
+    const enemyThreat = getThreatScore(boardCopy, row, col, humanPlayer, winCount);
+    boardCopy[row][col] = null;
+    if (enemyThreat >= 2) return { row, col }; // Block ngay
+  }
+
+  // 3b. Tạo double-threat cho AI
+  for (const { row, col } of candidates) {
+    boardCopy[row][col] = aiPlayer;
+    const aiThreat = getThreatScore(boardCopy, row, col, aiPlayer, winCount);
+    boardCopy[row][col] = null;
+    if (aiThreat >= 2) return { row, col };
+  }
+
+  // 4. Minimax nâng cao
+  const result = minimaxHard(boardCopy, HARD_DEPTH, -Infinity, Infinity, true, aiPlayer, winCount);
+  return result.move || candidates[0];
+}
+
 // Export heuristic cho hint system sử dụng lại
-export { evaluateBoard, getCandidateMoves, evaluateCell };
+export { evaluateBoard, getCandidateMoves, evaluateCell, countDirection };

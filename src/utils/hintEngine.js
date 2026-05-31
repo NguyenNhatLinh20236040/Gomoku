@@ -1,9 +1,3 @@
-// ==========================================
-// hintEngine.js - Smart Hint System
-// ==========================================
-// Gợi ý nước đi tốt nhất cho người chơi
-// Sử dụng lại heuristic từ AI Engine
-// ==========================================
 
 import { BOARD_SIZE, checkWin } from './checkWin';
 import { getCandidateMoves, evaluateBoard } from './aiEngine';
@@ -12,9 +6,10 @@ import { getCandidateMoves, evaluateBoard } from './aiEngine';
  * Tìm nước đi tốt nhất cho player hiện tại
  * @param {Array} board - Bàn cờ 15x15
  * @param {string} player - 'X' hoặc 'O'
+ * @param {number} winCount - Số quân cần liên tiếp để thắng
  * @returns {{ row: number, col: number, score: number } | null}
  */
-export function getHint(board, player) {
+export function getHint(board, player, winCount = 5) {
   const candidates = getCandidateMoves(board);
 
   if (candidates.length === 0) return null;
@@ -27,7 +22,7 @@ export function getHint(board, player) {
     board[row][col] = player;
 
     // Nước thắng ngay → ưu tiên tuyệt đối
-    if (checkWin(board, row, col, player)) {
+    if (checkWin(board, row, col, player, winCount)) {
       board[row][col] = null;
       return { row, col, score: Infinity };
     }
@@ -46,7 +41,7 @@ export function getHint(board, player) {
   const opponent = player === 'X' ? 'O' : 'X';
   for (const { row, col } of candidates) {
     board[row][col] = opponent;
-    if (checkWin(board, row, col, opponent)) {
+    if (checkWin(board, row, col, opponent, winCount)) {
       board[row][col] = null;
       // Nếu đối thủ có thể thắng, ưu tiên block
       return { row, col, score: 99999 };

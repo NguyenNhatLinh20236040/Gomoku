@@ -6,28 +6,87 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevent text selection on game elements */
+button,
+.player-indicator,
+.player-timer-wrapper {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ===== CUSTOM SCROLLBAR ===== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(236, 72, 153, 0.08);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(236, 72, 153, 0.25);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(236, 72, 153, 0.4);
 }
 
 /* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.4); }
-  50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.8); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.8);
+  }
 }
 
 @keyframes pop {
-  0% { transform: scale(0); }
-  70% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0);
+  }
+
+  70% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes winBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .animate-fade-in {
@@ -46,23 +105,52 @@ body {
   animation: winBlink 0.8s ease-in-out infinite;
 }
 
+/* Win line draws across winning cells */
+@keyframes winLineDraw {
+  from {
+    stroke-dashoffset: 1000;
+    opacity: 0.3;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-win-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: winLineDraw 1.2s ease-out forwards;
+}
+
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .animate-modal-in {
   animation: modalIn 0.3s ease-out;
 }
 
-/* ===== NEW ANIMATIONS - Milestone 2 ===== */
+/* ===== MILESTONE 2 ANIMATIONS ===== */
 
 /* Glow nhấp nháy cho ô gợi ý (hint) */
 @keyframes hintGlow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
     background-color: rgba(219, 234, 254, 0.6);
   }
+
   50% {
     box-shadow: 0 0 18px rgba(59, 130, 246, 0.7);
     background-color: rgba(191, 219, 254, 0.9);
@@ -75,8 +163,13 @@ body {
 
 /* AI thinking spinner */
 @keyframes aiThinking {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-ai-thinking {
@@ -85,8 +178,17 @@ body {
 
 /* Timer pulse khi gần hết giờ */
 @keyframes timerPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
 }
 
 .animate-timer-pulse {
@@ -95,10 +197,25 @@ body {
 
 /* Bounce in - đặt quân nâng cấp */
 @keyframes bounceIn {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.3); opacity: 0.8; }
-  70% { transform: scale(0.9); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+
+  70% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .animate-bounce-in {
@@ -111,6 +228,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -127,6 +245,7 @@ body {
     opacity: 1;
     transform: translateY(0) rotate(0deg);
   }
+
   100% {
     opacity: 0;
     transform: translateY(300px) rotate(720deg);
@@ -143,25 +262,42 @@ body {
     opacity: 0;
     transform: translateY(15px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
 
-.animate-stagger-1 { animation: staggerIn 0.4s ease-out 0.1s both; }
-.animate-stagger-2 { animation: staggerIn 0.4s ease-out 0.2s both; }
-.animate-stagger-3 { animation: staggerIn 0.4s ease-out 0.3s both; }
-.animate-stagger-4 { animation: staggerIn 0.4s ease-out 0.4s both; }
+.animate-stagger-1 {
+  animation: staggerIn 0.4s ease-out 0.1s both;
+}
+
+.animate-stagger-2 {
+  animation: staggerIn 0.4s ease-out 0.2s both;
+}
+
+.animate-stagger-3 {
+  animation: staggerIn 0.4s ease-out 0.3s both;
+}
+
+.animate-stagger-4 {
+  animation: staggerIn 0.4s ease-out 0.4s both;
+}
 
 /* Shimmer loading effect */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.4) 50%, transparent 75%);
+  background: linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, 0.4) 50%, transparent 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -198,10 +334,13 @@ body {
 }
 
 @keyframes timerBorderPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     filter: drop-shadow(0 0 3px currentColor);
   }
+
   50% {
     opacity: 0.6;
     filter: drop-shadow(0 0 8px currentColor);
@@ -212,4 +351,105 @@ body {
 .player-indicator {
   position: relative;
   z-index: 5;
+}
+
+/* ===== REPLAY CONTROLS ===== */
+
+.replay-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(236, 72, 153, 0.15);
+  border-radius: 10px;
+  color: #9d174d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.replay-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.15);
+}
+
+.replay-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.replay-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.replay-btn-primary {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: #ec4899;
+  border: none;
+  border-radius: 14px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+}
+
+.replay-btn-primary:hover {
+  background: #db2777;
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(236, 72, 153, 0.45);
+}
+
+.replay-btn-primary:active {
+  transform: scale(0.95);
+}
+
+/* ===== PAGE TRANSITION ===== */
+@keyframes pageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-page-in {
+  animation: pageSlideIn 0.35s ease-out;
+}
+
+/* ===== MATCH CARD HOVER ===== */
+@keyframes cardHover {
+  0% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  100% {
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+  }
+}
+
+/* ===== RESPONSIVE IMPROVEMENTS ===== */
+@media (max-width: 480px) {
+  .replay-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .replay-btn-primary {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
 }

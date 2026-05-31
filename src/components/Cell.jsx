@@ -13,11 +13,12 @@
  * @param {boolean} isHintCell - Có phải ô gợi ý không
  * @param {boolean} disabled - Không cho click (game đã kết thúc)
  */
-export default function Cell({ value, onClick, isLastMove, isWinCell, isHintCell, disabled }) {
-  // Xác định class cho quân X (hồng đậm) và O (hồng nhạt)
+export default function Cell({ value, onClick, isLastMove, isWinCell, isHintCell, disabled, large }) {
   const pieceClass = value === 'X'
     ? 'text-pink-600 font-extrabold'
     : 'text-pink-500 font-extrabold';
+
+  const sizeClass = large ? 'text-4xl' : 'text-lg sm:text-xl md:text-2xl';
 
   return (
     <button
@@ -27,7 +28,7 @@ export default function Cell({ value, onClick, isLastMove, isWinCell, isHintCell
         w-full aspect-square
         border border-gray-300
         flex items-center justify-center
-        text-lg sm:text-xl md:text-2xl
+        ${sizeClass}
         transition-all duration-150
         cursor-pointer
         ${!value && !disabled ? 'hover:bg-pink-50' : ''}
@@ -37,16 +38,15 @@ export default function Cell({ value, onClick, isLastMove, isWinCell, isHintCell
         ${value ? 'cursor-default' : ''}
         ${disabled && !value ? 'cursor-not-allowed' : ''}
       `}
-      aria-label={`Ô ${value || 'trống'}`}
+      aria-label={`Cell ${value || 'empty'}`}
     >
       {value && (
         <span className={`${pieceClass} animate-bounce-in select-none`}>
           {value}
         </span>
       )}
-      {/* Dấu chấm ở ô gợi ý */}
       {isHintCell && !value && (
-        <span className="w-3 h-3 rounded-full bg-blue-400/70 animate-bounce-in" />
+        <span className={`${large ? 'w-5 h-5' : 'w-3 h-3'} rounded-full bg-blue-400/70 animate-bounce-in`} />
       )}
     </button>
   );

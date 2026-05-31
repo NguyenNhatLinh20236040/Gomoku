@@ -4,15 +4,15 @@ const WIN_COUNT = 5;
 
 /**
  * Kiểm tra có người thắng sau nước đi tại (row, col)
- * @param {Array<Array<string|null>>} board - Bàn cờ 15x15
+ * @param {Array<Array<string|null>>} board - Bàn cờ
  * @param {number} row - Hàng vừa đặt
  * @param {number} col - Cột vừa đặt
  * @param {string} player - Người chơi ('X' hoặc 'O')
- * @returns {Array|null} - Mảng tọa độ 5 quân thắng, hoặc null
+ * @param {number} winCount - Số quân liên tiếp để thắng (3 hoặc 5)
+ * @returns {Array|null} - Mảng tọa độ quân thắng, hoặc null
  */
-export function checkWin(board, row, col, player) {
-  // 4 hướng kiểm tra: [delta_row, delta_col]
-
+export function checkWin(board, row, col, player, winCount = WIN_COUNT) {
+  const boardSize = board.length;
   const directions = [
     [0, 1],   // ngang
     [1, 0],   // dọc
@@ -21,33 +21,32 @@ export function checkWin(board, row, col, player) {
   ];
 
   for (const [dr, dc] of directions) {
-    const cells = [[row, col]]; // Bắt đầu từ ô vừa đặt
+    const cells = [[row, col]];
 
-    // Đếm theo hướng thuận (dr, dc)
-    for (let i = 1; i < WIN_COUNT; i++) {
+    // Đếm theo hướng thuận
+    for (let i = 1; i < winCount; i++) {
       const r = row + dr * i;
       const c = col + dc * i;
-      if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
+      if (r < 0 || r >= boardSize || c < 0 || c >= boardSize) break;
       if (board[r][c] !== player) break;
       cells.push([r, c]);
     }
 
-    // Đếm theo hướng ngược (-dr, -dc)
-    for (let i = 1; i < WIN_COUNT; i++) {
+    // Đếm theo hướng ngược
+    for (let i = 1; i < winCount; i++) {
       const r = row - dr * i;
       const c = col - dc * i;
-      if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
+      if (r < 0 || r >= boardSize || c < 0 || c >= boardSize) break;
       if (board[r][c] !== player) break;
       cells.push([r, c]);
     }
 
-    // Nếu tổng số quân liên tiếp >= 5 → THẮNG
-    if (cells.length >= WIN_COUNT) {
-      return cells; // Trả về tọa độ các quân thắng để highlight
+    if (cells.length >= winCount) {
+      return cells;
     }
   }
 
-  return null; // Chưa có ai thắng
+  return null;
 }
 
 /**
@@ -58,11 +57,12 @@ export function checkDraw(board) {
 }
 
 /**
- * Tạo bàn cờ trống 15x15
+ * Tạo bàn cờ trống theo kích thước
+ * @param {number} size - Kích thước bàn cờ (3 hoặc 15)
  */
-export function createEmptyBoard() {
-  return Array.from({ length: BOARD_SIZE }, () =>
-    Array.from({ length: BOARD_SIZE }, () => null)
+export function createEmptyBoard(size = BOARD_SIZE) {
+  return Array.from({ length: size }, () =>
+    Array.from({ length: size }, () => null)
   );
 }
 

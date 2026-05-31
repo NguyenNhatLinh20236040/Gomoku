@@ -1,27 +1,30 @@
 // ==========================================
-// HomePage.jsx - Trang chủ
+// HomePage.jsx - Home screen
 // ==========================================
-// Giao diện chào mừng với các nút lựa chọn
-// chế độ chơi: Local 2P hoặc AI (popup chọn level).
 
 import { useState } from 'react';
 import AILevelModal from '../components/AILevelModal';
+import RuleModal from '../components/RuleModal';
+
+const RULE_LABELS = {
+  '3row': '3×3 ⚡',
+  '5row': '15×15 ⭐',
+};
 
 /**
- * @param {function} onStartGame - Bắt đầu game với mode & level
- *   onStartGame(gameMode, aiLevel)
- *   gameMode: 'local' | 'ai'
- *   aiLevel:  'easy' | 'medium' | null
+ * @param {function} onStartGame - Start game with mode, level, ruleSet
+ * @param {function} onOpenHistory - Open match history page
  */
-export default function HomePage({ onStartGame }) {
+export default function HomePage({ onStartGame, onOpenHistory }) {
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [selectedRule, setSelectedRule] = useState('5row');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-pink-200 flex flex-col items-center justify-center px-4 text-pink-900">
 
       {/* ===== LOGO & TITLE ===== */}
       <div className="text-center mb-10 animate-fade-in">
-        {/* Icon bàn cờ */}
         <div className="w-24 h-24 mx-auto mb-6 bg-pink-600 rounded-2xl flex items-center justify-center shadow-xl shadow-pink-300/60">
           <div className="grid grid-cols-3 gap-1">
             {['X', '', 'O', '', 'X', '', 'O', '', 'X'].map((v, i) => (
@@ -43,41 +46,72 @@ export default function HomePage({ onStartGame }) {
           GOMOKU
         </h1>
         <p className="text-pink-700 text-lg">
-          Cờ Caro - Năm quân liên tiếp để chiến thắng
+          Line up to win — Classic strategy game
         </p>
       </div>
 
-      {/* ===== CÁC CHẾ ĐỘ CHƠI ===== */}
-      <div className="w-full max-w-md space-y-4 animate-fade-in">
-
-        {/* Chơi 2 người - Local */}
+      {/* ===== RULE SELECTOR ===== */}
+      <div className="w-full max-w-md mb-6 animate-fade-in">
         <button
-          onClick={() => onStartGame('local', null)}
+          onClick={() => setShowRuleModal(true)}
+          className="w-full py-3 px-6 bg-white/60 hover:bg-white/80 text-pink-800 font-semibold rounded-xl border-2 border-pink-200 hover:border-pink-300 shadow-sm transition-all cursor-pointer flex items-center justify-between"
+        >
+          <span className="text-sm text-pink-500">Rules:</span>
+          <span className="text-lg font-bold">{RULE_LABELS[selectedRule]}</span>
+          <span className="text-pink-400 text-xs">Change ▸</span>
+        </button>
+      </div>
+
+      {/* ===== GAME MODES ===== */}
+      <div className="w-full max-w-md space-y-4 animate-fade-in">
+        <button
+          onClick={() => onStartGame('local', null, selectedRule)}
           className="animate-stagger-1 w-full py-4 px-6 bg-pink-600 hover:bg-pink-500 text-white text-xl font-bold rounded-xl shadow-lg shadow-pink-400/40 hover:shadow-pink-400/50 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
         >
-          👥 Chơi 2 Người (Local)
+          👥 Local 2 Players
         </button>
 
-        {/* Chơi với AI - mở popup chọn level */}
         <button
           onClick={() => setShowAIModal(true)}
           className="animate-stagger-2 w-full py-4 px-6 bg-white/80 hover:bg-white/95 text-pink-800 text-xl font-bold rounded-xl border-2 border-pink-300 hover:border-pink-400 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
         >
-          🤖 Chơi với AI
+          🤖 Play vs AI
           <span className="block text-sm font-normal mt-1 text-pink-500">
-            Chọn độ khó để bắt đầu
+            Choose difficulty to start
+          </span>
+        </button>
+
+        {/* ===== MATCH HISTORY BUTTON ===== */}
+        <button
+          onClick={onOpenHistory}
+          className="animate-stagger-3 w-full py-4 px-6 bg-white/60 hover:bg-white/80 text-pink-700 text-xl font-bold rounded-xl border-2 border-pink-200 hover:border-pink-300 shadow-sm hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+        >
+          📋 Match History
+          <span className="block text-sm font-normal mt-1 text-pink-400">
+            View past games & replays
           </span>
         </button>
       </div>
 
-      {/* ===== POPUP CHỌN LEVEL AI ===== */}
+      {/* AI Level Modal */}
       {showAIModal && (
         <AILevelModal
           onSelect={(level) => {
             setShowAIModal(false);
-            onStartGame('ai', level);
+            onStartGame('ai', level, selectedRule);
           }}
           onClose={() => setShowAIModal(false)}
+        />
+      )}
+
+      {/* Rule Modal */}
+      {showRuleModal && (
+        <RuleModal
+          onSelect={(rule) => {
+            setSelectedRule(rule);
+            setShowRuleModal(false);
+          }}
+          onClose={() => setShowRuleModal(false)}
         />
       )}
     </div>

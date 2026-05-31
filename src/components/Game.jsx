@@ -3,18 +3,28 @@
 // ==========================================
 // Quản lý toàn bộ state: board, lượt chơi,
 // thắng/thua/hòa, lịch sử nước đi.
-// Tích hợp: AI, Timer (border animation), Smart Hint.
+// Tích hợp: AI, Timer (border animation), Smart Hint,
+// Multiple Rule Systems, Pause/Resume.
+// Kết nối Database: lưu trận đấu + nước đi qua API.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Board from './Board';
 import VictoryModal from './VictoryModal';
+import PauseModal from './PauseModal';
 import { checkWin, checkDraw, createEmptyBoard } from '../utils/checkWin';
-import { getEasyMove, getMediumMove } from '../utils/aiEngine';
+import { getEasyMove, getMediumMove, getHardMove } from '../utils/aiEngine';
 import { getHint } from '../utils/hintEngine';
+import { createMatch, endMatch, addMove } from '../utils/apiClient';
 import useTimer from '../hooks/useTimer';
 
 const TURN_TIME = 30;     // Giây mỗi lượt
 const MAX_HINTS = 3;      // Số lần gợi ý tối đa mỗi game
+
+// Mapping ruleSet → winCount & boardSize & API rule name
+const RULE_WIN_COUNT = { '3row': 3, '5row': 5 };
+const RULE_BOARD_SIZE = { '3row': 3, '5row': 15 };
+const RULE_LABELS = { '3row': '3×3 ⚡', '5row': '15×15 ⭐' };
+const RULE_TO_API = { '3row': 'gomoku3', '5row': 'gomoku5' };
 
 /**
  * Random quân AI: 'X' hoặc 'O'
@@ -26,11 +36,16 @@ function randomAISide() {
 /**
  * @param {function} onBack - Quay về trang chủ
  * @param {string} gameMode - 'local' | 'ai'
- * @param {string|null} aiLevel - 'easy' | 'medium' | null
+ * @param {string|null} aiLevel - 'easy' | 'medium' | 'hard' | null
+ * @param {string} ruleSet - '3row' | '5row'
  */
-export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
+export default function Game({ onBack, gameMode = 'local', aiLevel = null, ruleSet = '5row' }) {
+  // ===== DERIVED =====
+  const winCount = RULE_WIN_COUNT[ruleSet] || 5;
+  const boardSize = RULE_BOARD_SIZE[ruleSet] || 15;
+
   // ===== STATE =====
-  const [board, setBoard] = useState(createEmptyBoard);     // Bàn cờ 15x15
+  const [board, setBoard] = useState(() => createEmptyBoard(boardSize));     // Bàn cờ
   const [isXTurn, setIsXTurn] = useState(true);              // true = lượt X, false = lượt O
   const [lastMove, setLastMove] = useState(null);            // Nước đi cuối [row, col]
   const [winCells, setWinCells] = useState(null);            // Các ô thắng
@@ -40,7 +55,17 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
   const [hintCell, setHintCell] = useState(null);            // Ô gợi ý [row, col]
   const [hintsRemaining, setHintsRemaining] = useState(MAX_HINTS); // Gợi ý còn lại
   const [isAIThinking, setIsAIThinking] = useState(false);   // AI đang tính toán?
-  const [aiSide, setAiSide] = useState(() => randomAISide()); // AI đánh quân nào (random mỗi trận)
+  const [aiSide, setAiSide] = useState(() => randomAISide()); // AI đánh quân nào
+  const [isPaused, setIsPaused] = useState(false);           // Tạm dừng?
+  const [showVictoryModal, setShowVictoryModal] = useState(false); // Delayed victory popup
+
+  // ===== SCORE (Local mode) =====
+  const [scoreX, setScoreX] = useState(0);       // Player 1 (X) score
+  const [scoreO, setScoreO] = useState(0);       // Player 2 (O) score
+
+  // ===== DATABASE STATE =====
+  const [matchId, setMatchId] = useState(null);              // ID trận đấu trên DB
+  const matchStartTime = useRef(Date.now());                 // Thời điểm bắt đầu trận
 
   // Quân người chơi là quân còn lại
   const playerSide = aiSide === 'X' ? 'O' : 'X';
@@ -50,9 +75,13 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
   const isXTurnRef = useRef(isXTurn);
   const gameOverRef = useRef(false);
   const aiSideRef = useRef(aiSide);
+  const matchIdRef = useRef(null);
+  const moveCountRef = useRef(0);
   boardRef.current = board;
   isXTurnRef.current = isXTurn;
   aiSideRef.current = aiSide;
+  matchIdRef.current = matchId;
+  moveCountRef.current = moveCount;
 
   // Game đã kết thúc?
   const gameOver = winner !== null || isDraw;
@@ -61,19 +90,36 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
   // Kiểm tra có phải lượt AI không
   const isAITurn = gameMode === 'ai' && ((aiSide === 'X' && isXTurn) || (aiSide === 'O' && !isXTurn));
 
+  // ===== TẠO TRẬN ĐẤU TRÊN DB KHI BẮT ĐẦU =====
+  useEffect(() => {
+    const initMatch = async () => {
+      try {
+        const apiRule = RULE_TO_API[ruleSet] || 'gomoku5';
+        const result = await createMatch(gameMode, apiRule, aiLevel, aiSide);
+        if (result.data) {
+          setMatchId(result.data.id);
+          matchIdRef.current = result.data.id;
+        }
+      } catch (err) {
+        console.error('Failed to create match in DB:', err);
+      }
+    };
+    initMatch();
+    matchStartTime.current = Date.now();
+  }, []); // Chỉ chạy 1 lần khi mount
+
   // ===== TIMER =====
   const handleTimeout = useCallback(() => {
     if (gameOverRef.current) return;
-    // Không timeout lượt AI
     const currentIsAI = gameMode === 'ai' &&
       ((aiSideRef.current === 'X' && isXTurnRef.current) || (aiSideRef.current === 'O' && !isXTurnRef.current));
     if (currentIsAI) return;
 
-    // Hết giờ → đặt random cho người hết giờ, tự động chuyển lượt
     const currentBoard = boardRef.current;
     const emptyCells = [];
-    for (let r = 0; r < 15; r++) {
-      for (let c = 0; c < 15; c++) {
+    const size = currentBoard.length;
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
         if (currentBoard[r][c] === null) {
           emptyCells.push([r, c]);
         }
@@ -87,11 +133,10 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
 
   const { timeLeft, isRunning, start, pause, reset } = useTimer(TURN_TIME, handleTimeout);
 
-  // Start timer khi game bắt đầu (chỉ khi không phải lượt AI)
+  // Start timer khi game bắt đầu
   useEffect(() => {
     if (gameMode === 'ai' && aiSide === 'X') {
-      // AI đi trước, không start timer
-      return;
+      return; // AI đi trước, không start timer
     }
     start();
   }, []);
@@ -101,35 +146,66 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
   const isUrgent = timeLeft <= 5;
   const isWarning = timeLeft <= 10;
 
-  // Màu viền timer
   const getTimerBorderColor = () => {
-    if (isUrgent) return '#ef4444';   // red-500
-    if (isWarning) return '#f59e0b';  // amber-500
-    return '#10b981';                  // emerald-500
+    if (isUrgent) return '#ef4444';
+    if (isWarning) return '#f59e0b';
+    return '#10b981';
   };
 
-  // ===== XỬ LÝ NƯỚC ĐI (internal - dùng chung cho player và AI) =====
+  // ===== GHI NƯỚC ĐI VÀO DB =====
+  const saveMoveToDB = useCallback(async (row, col, player, turnNumber) => {
+    const currentMatchId = matchIdRef.current;
+    if (!currentMatchId) return; // Chưa có matchId
+    try {
+      await addMove(currentMatchId, turnNumber, player, row, col);
+    } catch (err) {
+      console.error('Failed to save move:', err);
+    }
+  }, []);
+
+  // ===== GHI KẾT QUẢ VÀO DB =====
+  const saveResultToDB = useCallback(async (winnerValue) => {
+    const currentMatchId = matchIdRef.current;
+    if (!currentMatchId) return;
+    try {
+      const durationSeconds = Math.round((Date.now() - matchStartTime.current) / 1000);
+      await endMatch(currentMatchId, winnerValue, durationSeconds);
+    } catch (err) {
+      console.error('Failed to save result:', err);
+    }
+  }, []);
+
+  // ===== XỬ LÝ NƯỚC ĐI (internal) =====
   const handleCellClickInternal = useCallback((row, col) => {
     const currentBoard = boardRef.current;
     if (currentBoard[row][col] || gameOverRef.current) return;
 
     const currentPlayer = isXTurnRef.current ? 'X' : 'O';
+    const turnNumber = moveCountRef.current + 1;
 
-    // Cập nhật bàn cờ (tạo bản sao mới - immutable)
+    // Cập nhật bàn cờ (immutable)
     const newBoard = currentBoard.map(r => [...r]);
     newBoard[row][col] = currentPlayer;
 
     setBoard(newBoard);
     setLastMove([row, col]);
     setMoveCount(prev => prev + 1);
-    setHintCell(null); // Xóa hint khi đặt quân
+    setHintCell(null);
 
-    // Kiểm tra thắng
-    const winResult = checkWin(newBoard, row, col, currentPlayer);
+    // Ghi nước đi vào DB (async, không block gameplay)
+    saveMoveToDB(row, col, currentPlayer, turnNumber);
+
+    // Kiểm tra thắng (dùng winCount động)
+    const winResult = checkWin(newBoard, row, col, currentPlayer, winCount);
     if (winResult) {
       setWinCells(winResult);
       setWinner(currentPlayer);
-      pause(); // Dừng timer
+      pause();
+      // Cập nhật tỉ số
+      if (currentPlayer === 'X') setScoreX(prev => prev + 1);
+      else setScoreO(prev => prev + 1);
+      // Ghi kết quả vào DB
+      saveResultToDB(currentPlayer);
       return;
     }
 
@@ -137,6 +213,11 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
     if (checkDraw(newBoard)) {
       setIsDraw(true);
       pause();
+      // Cập nhật tỉ số: hòa +0.5 mỗi bên
+      setScoreX(prev => prev + 0.5);
+      setScoreO(prev => prev + 0.5);
+      // Ghi kết quả hòa vào DB
+      saveResultToDB('DRAW');
       return;
     }
 
@@ -146,44 +227,43 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
     isXTurnRef.current = nextIsX;
     boardRef.current = newBoard;
 
-    // Kiểm tra lượt tiếp có phải AI không
     const nextIsAI = gameMode === 'ai' &&
       ((aiSideRef.current === 'X' && nextIsX) || (aiSideRef.current === 'O' && !nextIsX));
 
     if (nextIsAI) {
-      pause(); // Pause timer khi AI đánh
+      pause();
     } else {
       reset(TURN_TIME);
     }
-  }, [gameMode, pause, reset]);
+  }, [gameMode, pause, reset, winCount, saveMoveToDB, saveResultToDB]);
 
   // ===== XỬ LÝ CLICK Ô CỜ (player) =====
   const handleCellClick = useCallback((row, col) => {
-    // Không cho click nếu game kết thúc hoặc AI đang thinking
-    if (gameOver || isAIThinking) return;
-    // Trong mode AI, chỉ cho đánh khi lượt player
+    if (gameOver || isAIThinking || isPaused) return;
     if (gameMode === 'ai' && isAITurn) return;
-
     handleCellClickInternal(row, col);
-  }, [gameOver, isAIThinking, gameMode, isAITurn, handleCellClickInternal]);
+  }, [gameOver, isAIThinking, gameMode, isAITurn, handleCellClickInternal, isPaused]);
 
   // ===== AI TỰ ĐỘNG ĐÁNH =====
   useEffect(() => {
     if (gameMode !== 'ai') return;
     if (!isAITurn) return;
-    if (gameOver) return;
+    if (gameOver || isPaused) return;
 
     setIsAIThinking(true);
 
-    // Delay 400ms để người chơi thấy quân vừa đặt trước
+    const delay = aiLevel === 'hard' ? 600 : 400;
+
     const timer = setTimeout(() => {
       const currentBoard = boardRef.current;
       let move;
 
       if (aiLevel === 'easy') {
         move = getEasyMove(currentBoard);
+      } else if (aiLevel === 'medium') {
+        move = getMediumMove(currentBoard, aiSide, winCount);
       } else {
-        move = getMediumMove(currentBoard, aiSide);
+        move = getHardMove(currentBoard, aiSide, winCount);
       }
 
       if (move) {
@@ -191,27 +271,50 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
       }
 
       setIsAIThinking(false);
-    }, 400);
+    }, delay);
 
     return () => clearTimeout(timer);
-  }, [isXTurn, gameOver, gameMode, aiLevel, isAITurn, aiSide, handleCellClickInternal]);
+  }, [isXTurn, gameOver, gameMode, aiLevel, isAITurn, aiSide, handleCellClickInternal, isPaused]);
 
-  // ===== SMART HINT (chỉ dùng trong chế độ AI) =====
+  // ===== SMART HINT =====
   const handleHint = useCallback(() => {
-    if (gameOver || isAIThinking || hintsRemaining <= 0) return;
-    if (gameMode !== 'ai') return; // Không cho hint ở local mode
+    if (gameOver || isAIThinking || hintsRemaining <= 0 || isPaused) return;
+    if (gameMode !== 'ai') return;
     const currentPlayer = isXTurn ? 'X' : 'O';
-    const hint = getHint([...board.map(r => [...r])], currentPlayer);
+    const hint = getHint([...board.map(r => [...r])], currentPlayer, winCount);
     if (hint) {
       setHintCell([hint.row, hint.col]);
       setHintsRemaining(prev => prev - 1);
     }
-  }, [board, isXTurn, gameOver, isAIThinking, hintsRemaining, gameMode]);
+  }, [board, isXTurn, gameOver, isAIThinking, hintsRemaining, gameMode, isPaused, winCount]);
+
+  // ===== DELAYED VICTORY MODAL =====
+  useEffect(() => {
+    if (!winner && !isDraw) return;
+    // Wait for win-line animation before showing modal
+    const delay = winner ? 1500 : 800; // longer for win (see line), shorter for draw
+    const timer = setTimeout(() => setShowVictoryModal(true), delay);
+    return () => clearTimeout(timer);
+  }, [winner, isDraw]);
+
+  // ===== PAUSE / RESUME =====
+  const handlePause = () => {
+    if (gameOver || isAIThinking) return;
+    setIsPaused(true);
+    pause(); // Dừng timer
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+    if (!isAITurn) {
+      start(); // Tiếp tục timer từ thời gian còn lại
+    }
+  };
 
   // ===== RESTART GAME =====
   const handleRestart = () => {
     const newAiSide = randomAISide();
-    setBoard(createEmptyBoard());
+    setBoard(createEmptyBoard(boardSize));
     setIsXTurn(true);
     isXTurnRef.current = true;
     setLastMove(null);
@@ -219,36 +322,51 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
     setWinner(null);
     setIsDraw(false);
     setMoveCount(0);
+    moveCountRef.current = 0;
     setHintCell(null);
     setHintsRemaining(MAX_HINTS);
     setIsAIThinking(false);
     setAiSide(newAiSide);
     aiSideRef.current = newAiSide;
+    setIsPaused(false);
+    setShowVictoryModal(false);
 
-    // Nếu AI đánh X (đi trước), không start timer
     if (gameMode === 'ai' && newAiSide === 'X') {
       pause();
     } else {
       reset(TURN_TIME);
     }
+
+    // Tạo trận mới trên DB
+    const initNewMatch = async () => {
+      try {
+        const apiRule = RULE_TO_API[ruleSet] || 'gomoku5';
+        const result = await createMatch(gameMode, apiRule, aiLevel, newAiSide);
+        if (result.data) {
+          setMatchId(result.data.id);
+          matchIdRef.current = result.data.id;
+        }
+      } catch (err) {
+        console.error('Failed to create new match:', err);
+      }
+    };
+    initNewMatch();
+    matchStartTime.current = Date.now();
   };
 
-  // Lấy tên hiển thị cho AI level
-  const aiLevelLabel = aiLevel === 'easy' ? 'Easy 🟢' : 'Medium 🟡';
+  // Labels
+  const aiLevelLabel = aiLevel === 'easy' ? 'Easy 🟢' : aiLevel === 'medium' ? 'Medium 🟡' : 'Hard 🔴';
 
-  // Tên hiển thị cho player X và O
   const playerXLabel = gameMode === 'ai'
-    ? (aiSide === 'X' ? 'AI 🤖' : 'Bạn')
-    : 'Người chơi 1';
+    ? (aiSide === 'X' ? 'AI 🤖' : 'You')
+    : 'Player 1';
   const playerOLabel = gameMode === 'ai'
-    ? (aiSide === 'O' ? 'AI 🤖' : 'Bạn')
-    : 'Người chơi 2';
+    ? (aiSide === 'O' ? 'AI 🤖' : 'You')
+    : 'Player 2';
 
-  // Xác dịnh player nào đang active (để vẽ border timer)
   const isXActive = isXTurn && !gameOver;
   const isOActive = !isXTurn && !gameOver;
 
-  // Kiểm tra player active có phải AI không (nếu là AI thì không hiển thị timer border)
   const isXAI = gameMode === 'ai' && aiSide === 'X';
   const isOAI = gameMode === 'ai' && aiSide === 'O';
   const showXTimer = isXActive && !(isXAI);
@@ -265,7 +383,7 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
           className="flex items-center gap-2 px-4 py-2 bg-white/70 hover:bg-white/90 text-pink-900 rounded-lg transition-all cursor-pointer shadow-sm"
         >
           <span>←</span>
-          <span className="hidden sm:inline">Trang chủ</span>
+          <span className="hidden sm:inline">Home</span>
         </button>
 
         <h1 className="text-xl sm:text-2xl font-bold text-pink-900 tracking-wide">
@@ -277,14 +395,28 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
           )}
         </h1>
 
-        <button
-          onClick={handleRestart}
-          className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-all cursor-pointer shadow-lg shadow-pink-300/40"
-        >
-          <span>↻</span>
-          <span className="hidden sm:inline">Ván mới</span>
-        </button>
+        {!gameOver ? (
+          <button
+            onClick={handlePause}
+            disabled={isAIThinking}
+            className="flex items-center gap-2 px-4 py-2 bg-white/70 hover:bg-white/90 text-pink-900 rounded-lg transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>⏸️</span>
+            <span className="hidden sm:inline">Pause</span>
+          </button>
+        ) : (
+          <div className="px-4 py-2 opacity-0 pointer-events-none">⏸️</div>
+        )}
       </div>
+
+      {/* ===== LUẬT CHƠI BADGE ===== */}
+      <div className="mb-2">
+        <span className="px-3 py-1 bg-white/60 rounded-full text-xs font-semibold text-pink-600 border border-pink-200">
+          {RULE_LABELS[ruleSet]}
+        </span>
+      </div>
+
+
 
       {/* ===== THÔNG TIN LƯỢT CHƠI VỚI BORDER TIMER ===== */}
       <div className="mb-4 flex items-center gap-4">
@@ -319,6 +451,11 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
           `}>
             <span className="text-lg font-bold">X</span>
             <span className="text-sm">{playerXLabel}</span>
+            {gameMode === 'local' && (scoreX > 0 || scoreO > 0) && (
+              <span className={`ml-1 px-1.5 py-0.5 rounded-md text-xs font-black ${
+                isXTurn && !gameOver ? 'bg-white/30 text-white' : 'bg-pink-200 text-pink-700'
+              }`}>{Number.isInteger(scoreX) ? scoreX : scoreX.toFixed(1)}</span>
+            )}
           </div>
         </div>
 
@@ -355,6 +492,11 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
           `}>
             <span className="text-lg font-bold">O</span>
             <span className="text-sm">{playerOLabel}</span>
+            {gameMode === 'local' && (scoreX > 0 || scoreO > 0) && (
+              <span className={`ml-1 px-1.5 py-0.5 rounded-md text-xs font-black ${
+                !isXTurn && !gameOver ? 'bg-white/30 text-white' : 'bg-pink-200 text-pink-700'
+              }`}>{Number.isInteger(scoreO) ? scoreO : scoreO.toFixed(1)}</span>
+            )}
           </div>
         </div>
       </div>
@@ -363,12 +505,14 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
       {isAIThinking && (
         <div className="mb-3 flex items-center gap-2 px-4 py-2 bg-white/80 rounded-lg shadow-sm animate-slide-in">
           <div className="w-4 h-4 border-2 border-pink-400 border-t-transparent rounded-full animate-ai-thinking" />
-          <span className="text-pink-600 text-sm font-medium">AI đang suy nghĩ...</span>
+          <span className="text-pink-600 text-sm font-medium">AI is thinking...</span>
         </div>
       )}
 
+
+
       {/* ===== MODAL KẾT QUẢ (THẮNG / HÒA) ===== */}
-      {(winner || isDraw) && (
+      {showVictoryModal && (
         <VictoryModal
           winner={winner}
           isDraw={isDraw}
@@ -379,27 +523,36 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
         />
       )}
 
-      {/* Số nước đi + Nút Hint (chỉ hiện hint trong chế độ AI) */}
+      {/* ===== PAUSE MODAL ===== */}
+      {isPaused && !gameOver && (
+        <PauseModal
+          onResume={handleResume}
+          onRestart={handleRestart}
+          onBack={onBack}
+        />
+      )}
+
+      {/* Số nước đi + Nút Hint */}
       <div className="mb-3 flex items-center gap-4">
         <span className="text-pink-700 text-sm">
-          Nước đi: {moveCount}
+          Moves: {moveCount}
         </span>
 
         {/* Nút gợi ý - CHỈ hiện trong chế độ AI, khi lượt player */}
         {gameMode === 'ai' && !gameOver && !isAITurn && (
           <button
             onClick={handleHint}
-            disabled={isAIThinking || hintsRemaining <= 0}
+            disabled={isAIThinking || hintsRemaining <= 0 || isPaused}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-md shadow-blue-300/30 hover:shadow-blue-300/50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>💡</span>
-            <span>Gợi ý ({hintsRemaining}/{MAX_HINTS})</span>
+            <span>Hint ({hintsRemaining}/{MAX_HINTS})</span>
           </button>
         )}
       </div>
 
       {/* ===== BÀN CỜ ===== */}
-      <div className="overflow-auto max-w-full">
+      <div className={`overflow-auto max-w-full transition-all duration-300 ${isPaused ? 'blur-md pointer-events-none' : ''}`}>
         <Board
           board={board}
           onCellClick={handleCellClick}
@@ -412,7 +565,7 @@ export default function Game({ onBack, gameMode = 'local', aiLevel = null }) {
 
       {/* ===== FOOTER ===== */}
       <div className="mt-4 text-pink-700 text-xs">
-         Click vào ô trống để đặt quân
+         Click an empty cell to place your piece
       </div>
     </div>
   );

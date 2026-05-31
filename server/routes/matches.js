@@ -9,17 +9,22 @@ const router = Router();
 
 // --- Validation helpers ---
 const VALID_MODES = ['local', 'ai'];
-const VALID_RULES = ['gomoku3', 'gomoku4', 'gomoku5', 'renju'];
+const VALID_RULES = ['gomoku3', 'gomoku5'];
 const VALID_AI_LEVELS = ['easy', 'medium', 'hard'];
 const VALID_PLAYERS = ['X', 'O'];
-const BOARD_SIZE = 15;
+
+// Board size theo rule
+function getBoardSize(rule) {
+  if (rule === 'gomoku3') return 3;
+  return 15;
+}
 
 // =============================================
 // POST /api/matches — Tạo trận đấu mới
 // =============================================
 router.post('/', (req, res) => {
   try {
-    const { mode = 'local', rule = 'gomoku5', ai_level = null } = req.body;
+    const { mode = 'local', rule = 'gomoku5', ai_level = null, ai_side = null } = req.body;
 
     // Validate mode
     if (!VALID_MODES.includes(mode)) {
@@ -46,11 +51,16 @@ router.post('/', (req, res) => {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO matches (mode, rule, ai_level)
-      VALUES (?, ?, ?)
+      INSERT INTO matches (mode, rule, ai_level, ai_side)
+      VALUES (?, ?, ?, ?)
     `);
 
-    const result = stmt.run(mode, rule, mode === 'ai' ? ai_level : null);
+    const result = stmt.run(
+      mode,
+      rule,
+      mode === 'ai' ? ai_level : null,
+      mode === 'ai' ? (ai_side || null) : null
+    );
 
     // Lấy match vừa tạo
     const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(result.lastInsertRowid);
@@ -67,7 +77,7 @@ router.post('/', (req, res) => {
 // =============================================
 router.get('/', (req, res) => {
   try {
-    const { mode, rule, limit = 20, offset = 0 } = req.query;
+    const { mode, rule, limit = 50, offset = 0 } = req.query;
 
     let query = 'SELECT * FROM matches';
     const conditions = [];
@@ -82,6 +92,9 @@ router.get('/', (req, res) => {
       params.push(rule);
     }
 
+    // Chỉ lấy trận đã kết thúc (có winner)
+    conditions.push('winner IS NOT NULL');
+
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
@@ -94,6 +107,48 @@ router.get('/', (req, res) => {
     res.json({ data: matches, error: null });
   } catch (err) {
     console.error('GET /matches error:', err);
+    res.status(500).json({ data: null, error: 'Internal server error' });
+  }
+});
+
+// =============================================
+// GET /api/matches/stats — Thống kê tổng hợp
+// =============================================
+router.get('/stats', (req, res) => {
+  try {
+    const totalMatches = db.prepare(
+      'SELECT COUNT(*) as count FROM matches WHERE winner IS NOT NULL'
+    ).get();
+
+    const byMode = db.prepare(`
+      SELECT mode, COUNT(*) as count FROM matches
+      WHERE winner IS NOT NULL
+      GROUP BY mode
+    `).all();
+
+    const byResult = db.prepare(`
+      SELECT winner, COUNT(*) as count FROM matches
+      WHERE winner IS NOT NULL
+      GROUP BY winner
+    `).all();
+
+    const byAiLevel = db.prepare(`
+      SELECT ai_level, COUNT(*) as count FROM matches
+      WHERE mode = 'ai' AND winner IS NOT NULL AND ai_level IS NOT NULL
+      GROUP BY ai_level
+    `).all();
+
+    res.json({
+      data: {
+        total: totalMatches?.count || 0,
+        byMode,
+        byResult,
+        byAiLevel,
+      },
+      error: null,
+    });
+  } catch (err) {
+    console.error('GET /matches/stats error:', err);
     res.status(500).json({ data: null, error: 'Internal server error' });
   }
 });
@@ -149,11 +204,12 @@ router.post('/:id/moves', (req, res) => {
       });
     }
 
-    // Validate row/col
-    if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+    // Validate row/col dựa trên rule
+    const boardSize = getBoardSize(match.rule);
+    if (row < 0 || row >= boardSize || col < 0 || col >= boardSize) {
       return res.status(400).json({
         data: null,
-        error: `Invalid position. Row and col must be 0-${BOARD_SIZE - 1}`
+        error: `Invalid position. Row and col must be 0-${boardSize - 1}`
       });
     }
 
@@ -191,7 +247,7 @@ router.post('/:id/moves', (req, res) => {
 router.patch('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { winner } = req.body;
+    const { winner, duration_seconds } = req.body;
 
     const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(id);
     if (!match) {
@@ -206,8 +262,10 @@ router.patch('/:id', (req, res) => {
     }
 
     db.prepare(`
-      UPDATE matches SET winner = ?, ended_at = CURRENT_TIMESTAMP WHERE id = ?
-    `).run(winner, id);
+      UPDATE matches
+      SET winner = ?, duration_seconds = ?, ended_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(winner, duration_seconds || 0, id);
 
     const updated = db.prepare('SELECT * FROM matches WHERE id = ?').get(id);
     res.json({ data: updated, error: null });
@@ -229,7 +287,8 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ data: null, error: 'Match not found' });
     }
 
-    // CASCADE sẽ xóa moves liên quan
+    // Xóa moves trước (sql.js không hỗ trợ CASCADE tự động)
+    db.prepare('DELETE FROM moves WHERE match_id = ?').run(id);
     db.prepare('DELETE FROM matches WHERE id = ?').run(id);
 
     res.json({ data: { deleted: true }, error: null });
